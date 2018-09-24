@@ -2,8 +2,10 @@ package com.example.onkar.mapslauncher;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -26,6 +28,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+
+import com.android.volley.toolbox.Volley;
 import com.example.onkar.mapslauncher.models.PlaceInfo;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -51,9 +59,15 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.maps.android.SphericalUtil;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -63,6 +77,7 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         OnConnectionFailedListener {
 
     private Button buttoncal;
+    private Button buttonpath;
 
 
     @Override
@@ -131,11 +146,22 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         setContentView(R.layout.activity_maps_nav);
         mSearchText = (AutoCompleteTextView) findViewById(R.id.input_search);
         mGps = (ImageView) findViewById(R.id.ic_gps);
+
         buttoncal= (Button) findViewById(R.id.buttoncal);
         buttoncal.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 calculateDistance();
+
+
+            }
+        });
+
+        buttonpath=(Button) findViewById(R.id.buttonpath);
+        buttonpath.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                getDirection();
             }
         });
 
@@ -222,14 +248,19 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         if (list.size() > 0) {
             Address address = list.get(0);
 
+
             Log.d(TAG, "geoLocate: found a location: " + address.toString());
-            //Toast.makeText(this, address.toString(), Toast.LENGTH_SHORT).show();
+           // Toast.makeText(this, address.toString(), Toast.LENGTH_SHORT).show();
 
             moveCamera(new LatLng(address.getLatitude(), address.getLongitude()), DEFAULT_ZOOM,
                     address.getAddressLine(0));
-            lat=address.getLatitude();
-            lot=address.getLongitude();
+
+           lat=address.getLatitude();
+           lot=address.getLongitude();
+            // Toast.makeText(this,String.valueOf(address.getLatitude()+" latitude inside to"),Toast.LENGTH_SHORT).show();
+            //Toast.makeText(this,String.valueOf(address.getLongitude()+" longitude inside to"),Toast.LENGTH_SHORT).show();
         }
+
     }
 
     private void getDeviceLocation() {
@@ -369,11 +400,12 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
 
-    private void calculateDistance() {
+    private void calculateDistance()
+    {
 
 
-        LatLng from = new LatLng(18.600830,73.915669);
-        LatLng to = new LatLng(18.595976,73.924987);
+        LatLng from = new LatLng(laf, lof);
+        LatLng to = new LatLng(lat,lot);
 
         //Calculating the distance in meters
         Double distance = SphericalUtil.computeDistanceBetween(from, to)/1000;
@@ -382,6 +414,117 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         Toast.makeText(this,String.valueOf(distance+" Kilo-Meters"),Toast.LENGTH_SHORT).show();
 
     }
+
+
+    public String makeURL (double sourcelat, double sourcelog, double destlat, double destlog ){
+        StringBuilder urlString = new StringBuilder();
+        urlString.append("https://maps.googleapis.com/maps/api/directions/json");
+        urlString.append("?origin=");// from
+        urlString.append(Double.toString(sourcelat));
+        urlString.append(",");
+        urlString
+                .append(Double.toString( sourcelog));
+        urlString.append("&destination=");// to
+        urlString
+                .append(Double.toString( destlat));
+        urlString.append(",");
+        urlString.append(Double.toString(destlog));
+        urlString.append("&sensor=false&mode=driving&alternatives=true");
+        urlString.append("&key=AIzaSyCXDTfR3xvs-Hn3IoZwcv9c1nltCf81YsA");
+        return urlString.toString();
+    }
+
+    private void getDirection(){
+        //Getting the URL
+        String url = makeURL(laf, lof, lat, lot);
+
+        //Showing a dialog till we get the route
+        final ProgressDialog loading = ProgressDialog.show(this, "Getting Route", "Please wait...", false, false);
+
+        //Creating a string request
+        StringRequest stringRequest = new StringRequest(url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        loading.dismiss();
+                        //Calling the method drawPath to draw the path
+                        drawPath(response);
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        loading.dismiss();
+                    }
+                });
+
+        //Adding the request to request queue
+        RequestQueue requestQueue = Volley.newRequestQueue(this);
+        requestQueue.add(stringRequest);
+    }
+
+    public void drawPath(String  result) {
+        //Getting both the coordinates
+
+
+
+
+
+        try {
+            //Parsing json
+            final JSONObject json = new JSONObject(result);
+            JSONArray routeArray = json.getJSONArray("routes");
+            JSONObject routes = routeArray.getJSONObject(0);
+            JSONObject overviewPolylines = routes.getJSONObject("overview_polyline");
+            String encodedString = overviewPolylines.getString("points");
+            List<LatLng> list = decodePoly(encodedString);
+            Polyline line = mMap.addPolyline(new PolylineOptions()
+                    .addAll(list)
+                    .width(20)
+                    .color(Color.RED)
+                    .geodesic(true)
+            );
+
+
+        }
+        catch (JSONException e) {
+
+        }
+    }
+
+    private List<LatLng> decodePoly(String encoded) {
+        List<LatLng> poly = new ArrayList<LatLng>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng( (((double) lat / 1E5)),
+                    (((double) lng / 1E5) ));
+            poly.add(p);
+        }
+
+        return poly;
+    }
+
 
 
     //      --------------------------- google places API autocomplete suggestions -----------------
@@ -453,89 +596,3 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
 
 
 
-/*public class MapsNav extends FragmentActivity implements OnMapReadyCallback {
-
-    private GoogleMap mMap;
-    private static final int LOCATION_REQUEST=500;
-    ArrayList<LatLng> listpoints;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps_nav);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
-        listpoints=new ArrayList<>();
-    }
-
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
- /*   @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        mMap.getUiSettings().setZoomControlsEnabled(true);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},LOCATION_REQUEST);
-            return;
-        }
-
-        mMap.setMyLocationEnabled(true);
-        mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
-            @Override
-            public void onMapLongClick(LatLng latLng) {
-                //reset markers when already 2
-                if (listpoints.size()==2){
-                    listpoints.clear();
-                    mMap.clear();
-                }
-                //save first point select
-                listpoints.add(latLng);
-                //create marker
-                MarkerOptions markerOptions = new MarkerOptions().position(latLng);
-                if(listpoints.size()==1){
-
-                   /* private static final LatLng MELBOURNE = new LatLng(-37.813, 144.962);
-                       private Marker melbourne = mMap.addMarker(new MarkerOptions()
-                            .position(MELBOURNE)
-                            .title("Melbourne")
-                            .snippet("Population: 4,137,400")
-                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow)));
-
-*/
-  /*                  mMap.addMarker(new MarkerOptions().position(latLng).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-                    // markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
-
-
-                } else {
-                    mMap.addMarker(new MarkerOptions().position(latLng).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-                    //markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-                }
-
-            }
-        });
-
-    }
-
-    @SuppressLint("MissingPermission")
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode){
-            case LOCATION_REQUEST:
-                if (grantResults.length > 0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
-                    mMap.setMyLocationEnabled(true);
-
-                }
-                break;
-        }
-    }
-}*/

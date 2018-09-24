@@ -66,5 +66,16 @@
         android:text="Calculate"
         android:layout_alignParentLeft="true" />
 
+    <Button
+        android:id="@+id/buttonpath"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignTop="@+id/buttoncal"
+        android:layout_marginStart="124dp"
+        android:text="Path"
+        android:layout_alignParentLeft="true"
+        android:layout_marginLeft="124dp" />
+
 
 </RelativeLayout>
