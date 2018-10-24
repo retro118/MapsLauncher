@@ -1,10 +1,11 @@
 package com.example.onkar.mapslauncher;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
@@ -12,7 +13,6 @@ import android.location.Location;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -36,8 +36,6 @@ import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.onkar.mapslauncher.models.PlaceInfo;
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
-import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.PendingResult;
@@ -53,8 +51,6 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptor;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -76,8 +72,24 @@ import java.util.List;
 public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         OnConnectionFailedListener {
 
+    public double laf,lof,lat,lot,fuckinglot;
+    public String NAS;
+
+    public void setNAS(double lot)
+    {
+        this.NAS=String.valueOf(lot);
+    }
+
+    public String getNAS() {
+        return NAS;
+    }
+
     private Button buttoncal;
-    private Button buttonpath;
+    private Button buttonpath,buttondata;
+
+
+
+    DataBaseHelper myDatb;
 
 
     @Override
@@ -87,6 +99,9 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
+
+
+
 
         Toast.makeText(this, "Map is Ready", Toast.LENGTH_SHORT).show();
         Log.d(TAG, "onMapReady: map is ready");
@@ -134,7 +149,7 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
     private PlaceInfo mPlace;
     private Marker mMarker;
     LatLng lng;
-    double laf,lof,lat,lot;
+
 
     /* Button btnMap = (Button) findViewById(R.id.btnMap);*/
 
@@ -144,6 +159,10 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps_nav);
+
+        myDatb = new DataBaseHelper(this);
+        buttondata=(Button) findViewById(R.id.buttonDatabase);
+        viewAll();
         mSearchText = (AutoCompleteTextView) findViewById(R.id.input_search);
         mGps = (ImageView) findViewById(R.id.ic_gps);
 
@@ -165,11 +184,60 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
             }
         });
 
-        //mSearchText2 = (AutoCompleteTextView) findViewById(R.id.input_search2);
+
 
         getLocationPermission();
 
     }
+
+    public void viewAll()
+    {
+
+        buttondata.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                Cursor res= myDatb.getAllData(NAS);
+                if (res.getCount() ==0)
+                {
+
+                    Toast.makeText(MapsNav.this,NAS+" Longitude to in string",Toast.LENGTH_SHORT).show();
+                    showMsg("Error","Nothing Found");
+                    return;
+                }
+
+                StringBuffer buffer=new StringBuffer();
+                while (res.moveToNext() )
+                {
+
+
+                    buffer.append("BusNumber :"+res.getString(0)+"\n");
+                    buffer.append("StartingPoint :"+res.getString(1)+"\n");
+                    buffer.append("FinalPoint :"+res.getString(2)+"\n");
+                    buffer.append("Departure :"+res.getString(3)+"\n");
+                    buffer.append("Distance :"+res.getString(4)+"\n");
+                    buffer.append("Price :"+res.getString(5)+"\n");
+                    buffer.append("Latitude :"+res.getString(6)+"\n");
+                    buffer.append("Longitude :"+res.getString(7)+"\n\n");
+
+                }
+
+                showMsg("Available Transports: ",buffer.toString());
+            }
+        });
+    }
+
+
+    public void showMsg(String title,String Message)
+    {
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setCancelable(true);
+        builder.setTitle(title);
+        builder.setMessage(Message);
+        builder.show();
+    }
+
 
 
     private void initto() {
@@ -232,7 +300,7 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
     }
 
 
-    private void geoLocate() {
+    public void geoLocate() {
         Log.d(TAG, "geoLocate: geolocating");
 
         String searchString = mSearchText.getText().toString();
@@ -257,6 +325,9 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
 
            lat=address.getLatitude();
            lot=address.getLongitude();
+
+           setNAS(lot);
+           fuckinglot=address.getLongitude();
             // Toast.makeText(this,String.valueOf(address.getLatitude()+" latitude inside to"),Toast.LENGTH_SHORT).show();
             //Toast.makeText(this,String.valueOf(address.getLongitude()+" longitude inside to"),Toast.LENGTH_SHORT).show();
         }
@@ -400,9 +471,10 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
 
-    private void calculateDistance()
+    public void calculateDistance()
     {
 
+        NAS = Double.toString(lot);
 
         LatLng from = new LatLng(laf, lof);
         LatLng to = new LatLng(lat,lot);
@@ -412,6 +484,9 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
 
         //Displaying the distance
         Toast.makeText(this,String.valueOf(distance+" Kilo-Meters"),Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,String.valueOf(lat+" Latitude to"),Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,String.valueOf(lot+" Longitude to"),Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,NAS+" Longitude to in string",Toast.LENGTH_SHORT).show();
 
     }
 
@@ -430,7 +505,7 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
         urlString.append(",");
         urlString.append(Double.toString(destlog));
         urlString.append("&sensor=false&mode=driving&alternatives=true");
-        urlString.append("&key=AIzaSyCXDTfR3xvs-Hn3IoZwcv9c1nltCf81YsA");
+        urlString.append("&key=AIzaSyAqrGyKgdeSuLr1ydhyluWyLPdazZRTXZk");
         return urlString.toString();
     }
 
@@ -588,6 +663,8 @@ public class MapsNav extends AppCompatActivity implements OnMapReadyCallback,
     };
 
 
+    public static class ViewDatabase {
+    }
 }
 
 

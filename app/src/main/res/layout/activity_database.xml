@@ -4,28 +4,28 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".ViewDatabase">
 
     <LinearLayout
         android:layout_width="368dp"
         android:layout_height="551dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginRight="8dp"
-        android:layout_marginBottom="8dp"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        tools:layout_editor_absoluteX="8dp"
+        tools:layout_editor_absoluteY="8dp"
+        tools:ignore="MissingConstraints">
 
-        <Button
-            android:id="@+id/buttonMenu"
+
+        <TextView
+            android:textAlignment="center"
+            android:textSize="25sp"
+            android:text="User Information"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="MainMenu" />
+            android:id="@+id/tvUserInfo"/>
 
+        <ListView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/listviewinfo"/>
     </LinearLayout>
 </android.support.constraint.ConstraintLayout>
